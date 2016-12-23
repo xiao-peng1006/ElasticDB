@@ -28,14 +28,12 @@ public class TPCWProperties {
 	public String writeQueue[];
 	public String readQueue[];
 	public String candidateQueue[];
-	public String resultfolder;
-
-	public long timeout;
-
-	public String path;
 
 	public String username;
 	public String password;
+	
+	public int destroyerSleepInterval;
+	public String destroyTarget;
 
 	private static transient final Logger LOG = LoggerFactory
 			.getLogger(TPCWProperties.class);
@@ -59,7 +57,8 @@ public class TPCWProperties {
 		try {
 			username = getProperty("username");
 			password = getProperty("password");
-			timeout = Long.parseLong(getProperty("timeout"));
+			destroyerSleepInterval = Integer.parseInt(getProperty("destroyerSleepInterval"));
+			destroyTarget = getProperty("destroyTarget");
 			mixRate = Double.parseDouble(getProperty("mixRate"));
 			TPCmean = Double.parseDouble(getProperty("TPCmean"));
 			warmup = Long.parseLong(getProperty("warmup"));
@@ -75,7 +74,7 @@ public class TPCWProperties {
 				rate[rlCnt] = Double.parseDouble(rl.nextToken().trim());
 				rlCnt++;
 			}
-			LOG.info("rate is " + Arrays.toString(rate));
+//			LOG.info("rate is " + Arrays.toString(rate));
 
 			StringTokenizer wl = new StringTokenizer(
 					getProperty("workload_vector"), ",");
@@ -85,12 +84,14 @@ public class TPCWProperties {
 				workloads[wlCnt] = Integer.parseInt(wl.nextToken().trim());
 				wlCnt++;
 			}
-
 			LOG.info("workloads is " + Arrays.toString(workloads));
+			
+			if (workloads.length * interval != warmup + warmdown + mi) {
+				LOG.error("workload length can not match warm up/down + mi");
+				Runtime.getRuntime().exit(0);
+			}
 
 			rwratio = Double.parseDouble(getProperty("rwratio"));
-			resultfolder = getProperty("resultfolder");
-			// path = getProperty("path");
 
 			rl = new StringTokenizer(getProperty("read"), ",");
 			read = new double[rl.countTokens()];
@@ -99,7 +100,6 @@ public class TPCWProperties {
 				read[rlCnt] = Double.parseDouble(rl.nextToken().trim());
 				rlCnt++;
 			}
-			
 			LOG.info("read is " + Arrays.toString(read));
 
 			rl = new StringTokenizer(getProperty("write"), ",");
@@ -109,7 +109,6 @@ public class TPCWProperties {
 				write[rlCnt] = Double.parseDouble(rl.nextToken().trim());
 				rlCnt++;
 			}
-			
 			LOG.info("write is " + Arrays.toString(write));
 
 			rl = new StringTokenizer(getProperty("readQueue"), ",");
@@ -119,7 +118,6 @@ public class TPCWProperties {
 				readQueue[rlCnt] = rl.nextToken().trim();
 				rlCnt++;
 			}
-			
 			LOG.info("readQueue is " + Arrays.toString(readQueue));
 
 			
@@ -130,7 +128,6 @@ public class TPCWProperties {
 				writeQueue[rlCnt] = rl.nextToken().trim();
 				rlCnt++;
 			}
-			
 			LOG.info("writeQueue is " + Arrays.toString(writeQueue));
 
 			rl = new StringTokenizer(getProperty("candidateQueue"), ",");
@@ -140,13 +137,13 @@ public class TPCWProperties {
 				candidateQueue[rlCnt] = rl.nextToken().trim();
 				rlCnt++;
 			}
-			
 			LOG.info("candidateQueue is " + Arrays.toString(candidateQueue));
 
 
 		} catch (Exception e) {
-			System.err.println("Error while checking database.properties: "
+			System.err.println("Error while checking properties: "
 					+ e.getMessage());
+			Runtime.getRuntime().exit(0);
 		}
 	}
 

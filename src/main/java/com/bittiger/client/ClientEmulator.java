@@ -1,15 +1,22 @@
 package com.bittiger.client;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.io.IOException;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.bittiger.logic.ActionType;
 import com.bittiger.logic.Controller;
+import com.bittiger.logic.Destroyer;
 import com.bittiger.logic.EventQueue;
 import com.bittiger.logic.Executor;
 import com.bittiger.logic.LoadBalancer;
@@ -17,12 +24,21 @@ import com.bittiger.logic.Monitor;
 
 public class ClientEmulator {
 
+	@Option(name = "-c", usage = "enable controller")
+	private boolean enableController;
+	@Option(name = "-d", usage = "enable destroyer")
+	private boolean enableDestroyer;
+	// receives other command line parameters than options
+	@Argument
+	private List<String> arguments = new ArrayList<String>();
+
 	private TPCWProperties tpcw = null;
 	private int numOfRunningThreads = 0;
 	private boolean endOfSimulation = false;
 	private Monitor monitor;
 	private Controller controller;
 	private Executor executor;
+	private Destroyer destroyer;
 	private LoadBalancer loadBalancer;
 	OpenSystemTicketProducer producer;
 	EventQueue eventQueue = null;
@@ -52,14 +68,35 @@ public class ClientEmulator {
 		return endOfSimulation;
 	}
 
-	public void start() {
+	public void start(String[] args) {
+		CmdLineParser parser = new CmdLineParser(this);
+		try {
+			// parse the arguments.
+			parser.parseArgument(args);
+			// you can parse additional arguments if you want.
+			// parser.parseArgument("more","args");
+		} catch (CmdLineException e) {
+			// if there's a problem in the command line,
+			// you'll get this exception. this will report
+			// an error message.
+			System.err.println(e.getMessage());
+			System.err.println("java ClientEmulator [-c -d]");
+			// print the list of available options
+			parser.printUsage(System.err);
+			System.err.println();
+			return;
+		}
+
+		if (enableController)
+			LOG.info("-c flag is set");
+
+		if (enableDestroyer)
+			LOG.info("-d flag is set");
+
 		long warmup = tpcw.warmup;
 		long mi = tpcw.mi;
 		long warmdown = tpcw.warmdown;
 		this.startTime = System.currentTimeMillis();
-		this.monitor = new Monitor(this);
-		this.monitor.init();
-
 		int maxNumSessions = 0;
 		int workloads[] = tpcw.workloads;
 		for (int i = 0; i < workloads.length; i++) {
@@ -91,11 +128,21 @@ public class ClientEmulator {
 			producer = new OpenSystemTicketProducer(this, bQueue);
 			producer.start();
 		}
-		this.controller = new Controller(this);
-		Timer timer = new Timer();
-		timer.schedule(this.controller, warmup, tpcw.interval);
-		this.executor = new Executor(this);
-		this.executor.start();
+		
+		this.monitor = new Monitor(this);
+		this.monitor.init();
+		Timer timer = null;
+		if (enableController) {
+			this.controller = new Controller(this);
+			timer = new Timer();
+			timer.schedule(this.controller, warmup, tpcw.interval);
+			this.executor = new Executor(this);
+			this.executor.start();
+			if(enableDestroyer){
+				destroyer = new Destroyer(this);
+				destroyer.start();
+			}
+		}
 		this.loadBalancer = new LoadBalancer(this);
 		LOG.info("Client starts......");
 		while (true) {
@@ -148,13 +195,19 @@ public class ClientEmulator {
 				LOG.error("Producer has been interrupted.");
 			}
 		}
-		timer.cancel();
-		this.eventQueue.put(ActionType.NoOp);
-		try {
-			executor.join();
-			LOG.info("Executor joins");
-		} catch (java.lang.InterruptedException ie) {
-			LOG.error("Executor has been interrupted.");
+		if (enableController) {
+			timer.cancel();
+			this.eventQueue.put(ActionType.NoOp);
+			try {
+				executor.join();
+				LOG.info("Executor joins");
+				if(enableDestroyer){
+					destroyer.join();
+					LOG.info("Destroyer joins");
+				}
+			} catch (java.lang.InterruptedException ie) {
+				LOG.error("Executor/Destroyer has been interrupted.");
+			}
 		}
 		this.monitor.close();
 		LOG.info("Done\n");
@@ -212,7 +265,7 @@ public class ClientEmulator {
 	public static void main(String[] args) throws IOException,
 			InterruptedException {
 		ClientEmulator client = new ClientEmulator();
-		client.start();
+		client.start(args);
 	}
 
 }

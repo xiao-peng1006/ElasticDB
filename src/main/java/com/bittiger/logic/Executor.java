@@ -1,9 +1,5 @@
 package com.bittiger.logic;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +19,7 @@ public class Executor extends Thread {
 
 	@Override
 	public void run() {
-		//Executor executors the events in the queue one by one.
+		// Executor executors the events in the queue one by one.
 		LOG.info("Executor starts......");
 		while (true) {
 			ActionType actionType = c.getEventQueue().peek();
@@ -39,16 +35,20 @@ public class Executor extends Thread {
 					if (c.getLoadBalancer().getCandidateQueue().size() == 0) {
 						LOG.info("CandidateQueue size is 0, skip adding server");
 					} else {
-						Server target = c.getLoadBalancer().getCandidateQueue().remove(0);
-						Server source = c.getLoadBalancer().getReadQueue()
+						Server target = c.getLoadBalancer().getCandidateQueue()
+								.remove(0);
+						Server source = c
+								.getLoadBalancer()
+								.getReadQueue()
 								.get(c.getLoadBalancer().getReadQueue().size() - 1);
 						Server master = c.getLoadBalancer().getWriteQueue();
 						// make sure source ! = master
-						if(source.equals(master)){
+						if (source.equals(master)) {
 							LOG.error("source should not be equal to master");
 							continue;
 						}
-						scaleOut(source.getIp(), target.getIp(), master.getIp());
+						Utilities.scaleOut(source.getIp(), target.getIp(),
+								master.getIp());
 						c.getLoadBalancer().addServer(target);
 						LOG.info("kick in " + target.getIp() + " done ");
 					}
@@ -58,12 +58,12 @@ public class Executor extends Thread {
 								+ ", skip scale in");
 					} else {
 						Server server = c.getLoadBalancer().removeServer();
-						scaleIn(server.getIp());
+						Utilities.scaleIn(server.getIp());
 						LOG.info("Kick out server" + server.getIp() + " done ");
 					}
 				}
 				LOG.info(actionType + " request done");
-				//now consume the token
+				// now consume the token
 				c.getEventQueue().get();
 			} catch (Exception e) {
 				LOG.error(e.getMessage());
@@ -71,33 +71,4 @@ public class Executor extends Thread {
 		}
 	}
 
-	public boolean scaleOut(String source, String target, String master)
-			throws InterruptedException, IOException {
-		ProcessBuilder pb = new ProcessBuilder("/bin/bash",
-				"script/callScaleOut.sh", source, target, master);
-		Process p = pb.start();
-		LOG.info("Kick in " + target + " from " + source);
-		BufferedReader is = new BufferedReader(new InputStreamReader(
-				p.getInputStream()));
-		String line;
-		while ((line = is.readLine()) != null)
-			LOG.info(line);
-		p.waitFor();
-		return true;
-	}
-
-	public boolean scaleIn(String target) throws InterruptedException,
-			IOException {
-		ProcessBuilder pb = new ProcessBuilder("/bin/bash",
-				"script/callScaleIn.sh", target);
-		Process p = pb.start();
-		LOG.info("Kick out " + target);
-		BufferedReader is = new BufferedReader(new InputStreamReader(
-				p.getInputStream()));
-		String line;
-		while ((line = is.readLine()) != null)
-			LOG.info(line);
-		p.waitFor();
-		return true;
-	}
 }
