@@ -5,6 +5,7 @@ import java.util.Queue;
 
 public class EventQueue {
 	Queue<ActionType> queue = new LinkedList<ActionType>();
+
 	public synchronized ActionType peek() {
 		while (queue.isEmpty()) {
 			try {
@@ -12,7 +13,6 @@ public class EventQueue {
 			} catch (InterruptedException e) {
 			}
 		}
-		notifyAll();
 		return queue.peek();
 	}
 
@@ -24,12 +24,14 @@ public class EventQueue {
 		switch (actionType) {
 		case AvailNotEnoughAddServer:
 			if (!queue.contains(ActionType.AvailNotEnoughAddServer)
-					|| queue.contains(ActionType.BadPerformanceAddServer)) {
+					&& !queue.contains(ActionType.BadPerformanceAddServer)) {
 				queue.offer(actionType);
 			}
 			break;
 		case BadPerformanceAddServer:
 		case GoodPerformanceRemoveServer:
+			// we ignore the performance request if there is anything going on
+			// in the queue
 			if (queue.isEmpty()) {
 				queue.offer(actionType);
 			}

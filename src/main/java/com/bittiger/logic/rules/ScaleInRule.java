@@ -4,6 +4,7 @@ import org.easyrules.annotation.Action;
 import org.easyrules.annotation.Condition;
 import org.easyrules.annotation.Rule;
 
+import com.bittiger.client.ClientEmulator;
 import com.bittiger.client.Utilities;
 import com.bittiger.logic.ActionType;
 import com.bittiger.logic.Controller;
@@ -11,7 +12,7 @@ import com.bittiger.logic.Controller;
 @Rule(name = "ScaleInRule", description = "Check if we need to remove server for better resource usage")
 public class ScaleInRule {
 
-	private Controller controller;
+	private ClientEmulator c;
 	private String perf;
 
 	@Condition
@@ -24,12 +25,12 @@ public class ScaleInRule {
 	}
 
 	@Action
-	public void increase() throws Exception {
-		controller.getEventQueue().put(ActionType.GoodPerformanceRemoveServer);
+	public void removeServer() throws Exception {
+		c.getEventQueue().put(ActionType.GoodPerformanceRemoveServer);
 	}
 
-	public void setInput(Controller controller, String perf) {
-		this.controller = controller;
+	public void setInput(ClientEmulator c, String perf) {
+		this.c = c;
 		this.perf = perf;
 	}
 

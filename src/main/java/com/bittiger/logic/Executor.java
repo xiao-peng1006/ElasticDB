@@ -12,14 +12,10 @@ import com.bittiger.client.Utilities;
 
 public class Executor extends Thread {
 
-	Controller controller = null;
-	EventQueue eventQueue = null;
 	private ClientEmulator c;
 
 	public Executor(ClientEmulator c) {
 		this.c = c;
-		this.controller = c.getController();
-		this.eventQueue = c.getController().eventQueue;
 	}
 
 	private static transient final Logger LOG = LoggerFactory
@@ -27,9 +23,10 @@ public class Executor extends Thread {
 
 	@Override
 	public void run() {
+		//Executor executors the events in the queue one by one.
 		LOG.info("Executor starts......");
 		while (true) {
-			ActionType actionType = eventQueue.peek();
+			ActionType actionType = c.getEventQueue().peek();
 			long currTime = System.currentTimeMillis();
 			if (currTime > c.getStartTime() + c.getTpcw().warmup
 					+ c.getTpcw().mi) {
@@ -39,34 +36,35 @@ public class Executor extends Thread {
 				LOG.info(actionType + " request received");
 				if (actionType == ActionType.AvailNotEnoughAddServer
 						|| actionType == ActionType.BadPerformanceAddServer) {
-					if (controller.candidateQueue.size() == 0) {
+					if (c.getLoadBalancer().getCandidateQueue().size() == 0) {
 						LOG.info("CandidateQueue size is 0, skip adding server");
 					} else {
-						Server target = controller.candidateQueue.remove(0);
-						Server source = controller.readQueue
-								.get(controller.readQueue.size() - 1);
-						Server master = controller.writeQueue;
+						Server target = c.getLoadBalancer().getCandidateQueue().remove(0);
+						Server source = c.getLoadBalancer().getReadQueue()
+								.get(c.getLoadBalancer().getReadQueue().size() - 1);
+						Server master = c.getLoadBalancer().getWriteQueue();
 						// make sure source ! = master
 						if(source.equals(master)){
 							LOG.error("source should not be equal to master");
 							continue;
 						}
 						scaleOut(source.getIp(), target.getIp(), master.getIp());
-						controller.addServer(target);
+						c.getLoadBalancer().addServer(target);
 						LOG.info("kick in " + target.getIp() + " done ");
 					}
 				} else if (actionType == ActionType.GoodPerformanceRemoveServer) {
-					if (controller.readQueue.size() == Utilities.minimumSlave) {
+					if (c.getLoadBalancer().getReadQueue().size() == Utilities.minimumSlave) {
 						LOG.info("Read queue size is " + Utilities.minimumSlave
 								+ ", skip scale in");
 					} else {
-						Server server = controller.removeServer();
+						Server server = c.getLoadBalancer().removeServer();
 						scaleIn(server.getIp());
 						LOG.info("Kick out server" + server.getIp() + " done ");
 					}
 				}
 				LOG.info(actionType + " request done");
-				eventQueue.get();
+				//now consume the token
+				c.getEventQueue().get();
 			} catch (Exception e) {
 				LOG.error(e.getMessage());
 			}
@@ -75,12 +73,6 @@ public class Executor extends Thread {
 
 	public boolean scaleOut(String source, String target, String master)
 			throws InterruptedException, IOException {
-		// ssh root@source
-		// "/home/ubuntu/elasticDB/scripts/scaleOut.sh source target master"
-		// sb.append("ssh root@" + source
-		// +" \"/home/ubuntu/elasticDB/scripts/scaleOut.sh " + source +" " +
-		// target +" " + master +"\"");
-		// LOG.info(sb.toString());
 		ProcessBuilder pb = new ProcessBuilder("/bin/bash",
 				"script/callScaleOut.sh", source, target, master);
 		Process p = pb.start();

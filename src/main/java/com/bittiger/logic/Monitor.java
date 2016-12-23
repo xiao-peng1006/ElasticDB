@@ -2,11 +2,10 @@ package com.bittiger.logic;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Vector;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,13 +14,16 @@ import com.bittiger.client.ClientEmulator;
 import com.bittiger.client.Utilities;
 import com.bittiger.querypool.CleanStatsQuery;
 import com.bittiger.querypool.StatsQuery;
-import com.mysql.jdbc.UpdatableResultSet;
 
+/**
+ * We do not need strong consistency for stats in the monitor
+ *
+ */
 public class Monitor {
 
-	public final List<Stats> read;
-	public final List<Stats> write;
-	public final List<Stats> notAvailable;
+	public final Vector<Stats> read;
+	public final Vector<Stats> write;
+	public final Vector<Stats> notAvailable;
 	private ClientEmulator c;
 	Connection con;
 
@@ -29,9 +31,9 @@ public class Monitor {
 			.getLogger(Monitor.class);
 
 	public Monitor(ClientEmulator c) {
-		read = new ArrayList<Stats>();
-		write = new ArrayList<Stats>();
-		notAvailable = new ArrayList<Stats>();
+		read = new Vector<Stats>();
+		write = new Vector<Stats>();
+		notAvailable = new Vector<Stats>();
 		this.c = c;
 	}
 
@@ -39,7 +41,7 @@ public class Monitor {
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			con = DriverManager.getConnection(
-					Utilities.getStatsUrl(c.getTpcw().statsServer),
+					Utilities.getStatsUrl(c.getTpcw().writeQueue[0]),
 					c.getTpcw().username, c.getTpcw().password);
 			con.setAutoCommit(true);
 			try {
@@ -47,7 +49,7 @@ public class Monitor {
 				CleanStatsQuery clean = new CleanStatsQuery();
 				stmt.executeUpdate(clean.getQueryStr());
 				stmt.close();
-				LOG.info("Clean stats.");
+				LOG.info("Clean stats at server " + c.getTpcw().writeQueue[0]);
 			} catch (Exception e) {
 				LOG.error(e.toString());
 			}
@@ -62,7 +64,7 @@ public class Monitor {
 			StatsQuery stats = new StatsQuery(x, u, r, w, m);
 			stmt.executeUpdate(stats.getQueryStr());
 			stmt.close();
-			LOG.info("Stats:" + x + "," + u + "," + r + "," + w + "," + m);
+			LOG.info("Stats: Interval:" + x + ", Queries:" + u + ", Read:" + r + ", Write:" + w + ", Nodes:" + m);
 		} catch (Exception e) {
 			LOG.error(e.toString());
 		}
@@ -76,7 +78,7 @@ public class Monitor {
 		}
 	}
 
-	public synchronized void addQuery(int sessionId, String type, long start,
+	public void addQuery(int sessionId, String type, long start,
 			long end) {
 		// int id = Integer.parseInt(name.substring(name.indexOf("n") + 1));
 		Stats stat = new Stats(sessionId, type, start, end);
@@ -92,7 +94,7 @@ public class Monitor {
 		LOG.debug(stat.toString());
 	}
 
-	public synchronized String readPerformance() {
+	public String readPerformance() {
 		StringBuffer perf = new StringBuffer();
 		long currTime = System.currentTimeMillis();
 		long validStartTime = Math.max(c.getStartTime() + c.getTpcw().warmup,
@@ -159,7 +161,7 @@ public class Monitor {
 
 		int x = (int) ((currTime - c.getStartTime()) / c.getTpcw().interval);
 		updateStats(x, totCount, avgRead, avgWrite,
-				c.getController().readQueue.size());
+				c.getLoadBalancer().getReadQueue().size());
 		return perf.toString();
 	}
 

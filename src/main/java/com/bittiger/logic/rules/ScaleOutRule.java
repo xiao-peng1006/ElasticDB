@@ -4,6 +4,7 @@ import org.easyrules.annotation.Action;
 import org.easyrules.annotation.Condition;
 import org.easyrules.annotation.Rule;
 
+import com.bittiger.client.ClientEmulator;
 import com.bittiger.client.Utilities;
 import com.bittiger.logic.ActionType;
 import com.bittiger.logic.Controller;
@@ -11,7 +12,7 @@ import com.bittiger.logic.Controller;
 @Rule(name = "ScaleOutRule", description = "Check if we need to add server for better performance")
 public class ScaleOutRule {
 
-	private Controller controller;
+	private ClientEmulator c;
 	private String perf;
 
 	@Condition
@@ -23,12 +24,12 @@ public class ScaleOutRule {
 	}
 
 	@Action
-	public void increase() throws Exception {
-		controller.getEventQueue().put(ActionType.BadPerformanceAddServer);
+	public void addServer() throws Exception {
+		c.getEventQueue().put(ActionType.BadPerformanceAddServer);
 	}
 
-	public void setInput(Controller controller, String perf) {
-		this.controller = controller;
+	public void setInput(ClientEmulator c, String perf) {
+		this.c = c;
 		this.perf = perf;
 	}
 

@@ -1,5 +1,6 @@
 package com.bittiger.client;
 
+import java.util.Timer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.io.IOException;
@@ -7,11 +8,14 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.bittiger.logic.ActionType;
 import com.bittiger.logic.Controller;
+import com.bittiger.logic.EventQueue;
 import com.bittiger.logic.Executor;
+import com.bittiger.logic.LoadBalancer;
 import com.bittiger.logic.Monitor;
 
-public class ClientEmulator{
+public class ClientEmulator {
 
 	private TPCWProperties tpcw = null;
 	private int numOfRunningThreads = 0;
@@ -19,7 +23,9 @@ public class ClientEmulator{
 	private Monitor monitor;
 	private Controller controller;
 	private Executor executor;
+	private LoadBalancer loadBalancer;
 	OpenSystemTicketProducer producer;
+	EventQueue eventQueue = null;
 	private long startTime;
 
 	private static transient final Logger LOG = LoggerFactory
@@ -28,6 +34,7 @@ public class ClientEmulator{
 	public ClientEmulator() throws IOException, InterruptedException {
 		super();
 		tpcw = new TPCWProperties("tpcw");
+		eventQueue = new EventQueue();
 	}
 
 	public synchronized void increaseThread() {
@@ -52,7 +59,7 @@ public class ClientEmulator{
 		this.startTime = System.currentTimeMillis();
 		this.monitor = new Monitor(this);
 		this.monitor.init();
-		
+
 		int maxNumSessions = 0;
 		int workloads[] = tpcw.workloads;
 		for (int i = 0; i < workloads.length; i++) {
@@ -62,7 +69,7 @@ public class ClientEmulator{
 		}
 		LOG.info("The maximum is : " + maxNumSessions);
 		BlockingQueue<Integer> bQueue = new LinkedBlockingQueue<Integer>();
-		
+
 		// Each usersession is a user
 		UserSession[] sessions = new UserSession[maxNumSessions];
 		for (int i = 0; i < maxNumSessions; i++) {
@@ -77,18 +84,19 @@ public class ClientEmulator{
 
 		long endTime = startTime + warmup + mi + warmdown;
 		long currTime;
-		
+
 		// producer is for semi-open and open models
 		// it shares a bQueue with all the usersessions.
 		if (tpcw.mixRate > 0) {
-			producer = new OpenSystemTicketProducer(
-					this, bQueue);
+			producer = new OpenSystemTicketProducer(this, bQueue);
 			producer.start();
 		}
 		this.controller = new Controller(this);
+		Timer timer = new Timer();
+		timer.schedule(this.controller, warmup, tpcw.interval);
 		this.executor = new Executor(this);
-		this.controller.start();
-
+		this.executor.start();
+		this.loadBalancer = new LoadBalancer(this);
 		LOG.info("Client starts......");
 		while (true) {
 			currTime = System.currentTimeMillis();
@@ -123,7 +131,6 @@ public class ClientEmulator{
 			sessions[i].notifyThread();
 		}
 		LOG.info("Client: Shutting down threads ...");
-
 		for (int i = 0; i < maxNumSessions; i++) {
 			try {
 				LOG.info("UserSession " + i + " joins.");
@@ -133,7 +140,6 @@ public class ClientEmulator{
 						+ " has been interrupted.");
 			}
 		}
-
 		if (tpcw.mixRate > 0) {
 			try {
 				producer.join();
@@ -142,10 +148,13 @@ public class ClientEmulator{
 				LOG.error("Producer has been interrupted.");
 			}
 		}
+		timer.cancel();
+		this.eventQueue.put(ActionType.NoOp);
 		try {
-			controller.join();
+			executor.join();
+			LOG.info("Executor joins");
 		} catch (java.lang.InterruptedException ie) {
-			LOG.error("Controller has been interrupted.");
+			LOG.error("Executor has been interrupted.");
 		}
 		this.monitor.close();
 		LOG.info("Done\n");
@@ -184,7 +193,24 @@ public class ClientEmulator{
 		this.startTime = startTime;
 	}
 
-	public static void main(String[] args) throws IOException, InterruptedException {
+	public LoadBalancer getLoadBalancer() {
+		return loadBalancer;
+	}
+
+	public void setLoadBalancer(LoadBalancer loadBalancer) {
+		this.loadBalancer = loadBalancer;
+	}
+
+	public EventQueue getEventQueue() {
+		return eventQueue;
+	}
+
+	public void setEventQueue(EventQueue eventQueue) {
+		this.eventQueue = eventQueue;
+	}
+
+	public static void main(String[] args) throws IOException,
+			InterruptedException {
 		ClientEmulator client = new ClientEmulator();
 		client.start();
 	}

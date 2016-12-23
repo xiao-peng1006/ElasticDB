@@ -37,7 +37,6 @@ public class TPCWProperties {
 	public String username;
 	public String password;
 
-	public String statsServer;
 	private static transient final Logger LOG = LoggerFactory
 			.getLogger(TPCWProperties.class);
 
@@ -60,7 +59,6 @@ public class TPCWProperties {
 		try {
 			username = getProperty("username");
 			password = getProperty("password");
-			statsServer = getProperty("statsServer");
 			timeout = Long.parseLong(getProperty("timeout"));
 			mixRate = Double.parseDouble(getProperty("mixRate"));
 			TPCmean = Double.parseDouble(getProperty("TPCmean"));
@@ -89,15 +87,6 @@ public class TPCWProperties {
 			}
 
 			LOG.info("workloads is " + Arrays.toString(workloads));
-
-			// rate = new double[13];
-			// workloads = new int[13];
-			// timeWindow = new int[13];
-			// for (int i = 0; i < 13; i++) {
-			// rate[i] = 1000 / staticrate;
-			// workloads[i] = 3000;
-			// timeWindow[i] = 90;
-			// }
 
 			rwratio = Double.parseDouble(getProperty("rwratio"));
 			resultfolder = getProperty("resultfolder");

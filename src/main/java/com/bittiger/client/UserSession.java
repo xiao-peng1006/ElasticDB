@@ -3,14 +3,14 @@ package com.bittiger.client;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.bittiger.logic.LoadBalancer;
 import com.bittiger.logic.Server;
 import com.bittiger.querypool.QueryMetaData;
 
@@ -22,7 +22,7 @@ public class UserSession extends Thread {
 	private BlockingQueue<Integer> queue;
 	private int id;
 
-	int readQ = 0;
+	private Connection writeConn;
 
 	private static transient final Logger LOG = LoggerFactory
 			.getLogger(ClientEmulator.class);
@@ -85,13 +85,64 @@ public class UserSession extends Thread {
 		return sql;
 	}
 
-	private Pair<Server,Connection> getNextConnection(String sql) {
-		if (sql.contains("b")) // read
-		{
-			return client.getController().getNextReadConnection();
+	private Connection getNextConnection(String sql) {
+		// read
+		if (sql.contains("b")) {
+			return getNextReadConnection(client.getLoadBalancer());
 		} else {
-			return client.getController().getNextWriteConnection();
+			if (writeConn == null) {
+				writeConn = getNextWriteConnection(client.getLoadBalancer());
+			}
+			return writeConn;
 		}
+	}
+
+	public Connection getNextWriteConnection(LoadBalancer loadBalancer) {
+		Server server = null;
+		Connection connection = null;
+		try {
+			Class.forName("com.mysql.jdbc.Driver").newInstance();
+			// DriverManager.setLoginTimeout(5);
+			server = loadBalancer.getWriteQueue();
+			connection = (Connection) DriverManager.getConnection(
+					Utilities.getUrl(server), client.getTpcw().username,
+					client.getTpcw().password);
+			connection.setAutoCommit(true);
+		} catch (Exception e) {
+			LOG.error(e.toString());
+		}
+		LOG.debug("choose write server as " + server.getIp());
+		return connection;
+	}
+
+	public Connection getNextReadConnection(LoadBalancer loadBalancer) {
+		Server server = null;
+		Connection connection = null;
+		while (connection == null) {
+			int tryTime = 0;
+			server = loadBalancer.getNextReadServer();
+			while (connection == null && tryTime++ < Utilities.retryTimes) {
+				try {
+					Class.forName("com.mysql.jdbc.Driver").newInstance();
+					connection = (Connection) DriverManager.getConnection(
+							Utilities.getUrl(server),
+							client.getTpcw().username,
+							client.getTpcw().password);
+					connection.setAutoCommit(true);
+				} catch (Exception e) {
+					LOG.error(e.toString());
+				}
+			}
+			if (connection == null) {
+				LOG.error(server.getIp() + " is down. ");
+				loadBalancer.getReadQueue().remove(server);
+				loadBalancer.detectFailure();
+			} else {
+				LOG.debug("choose read server as " + server.getIp());
+				return connection;
+			}
+		}
+		return null;
 	}
 
 	public void run() {
@@ -117,33 +168,39 @@ public class UserSession extends Thread {
 
 				String queryclass = computeNextSql(tpcw.rwratio, tpcw.read,
 						tpcw.write);
-				Pair<Server, Connection> pair = getNextConnection(queryclass);
+				Connection connection = getNextConnection(queryclass);
 				String classname = "com.bittiger.querypool." + queryclass;
 				QueryMetaData query = (QueryMetaData) Class.forName(classname)
 						.newInstance();
 				String command = query.getQueryStr();
 
-				Statement stmt = pair.getRight().createStatement();
+				Statement stmt = connection.createStatement();
 				if (queryclass.contains("b")) {
 					long start = System.currentTimeMillis();
-					ResultSet rs = stmt.executeQuery(command);
+					stmt.executeQuery(command);
 					long end = System.currentTimeMillis();
 					client.getMonitor().addQuery(this.id, queryclass, start,
 							end);
-					rs.close();
-					client.getController().returnBack(pair.getLeft());
+					stmt.close();
+					connection.close();
 				} else {
 					long start = System.currentTimeMillis();
 					stmt.executeUpdate(command);
 					long end = System.currentTimeMillis();
 					client.getMonitor().addQuery(this.id, queryclass, start,
 							end);
+					stmt.close();
 				}
-				stmt.close();
-				pair.getRight().close();
 			} catch (Exception ex) {
 				LOG.error("Error while running session: " + ex.getMessage());
 			}
+		}
+		try {
+			if (writeConn != null) {
+				writeConn.close();
+			}
+		} catch (SQLException ex) {
+			LOG.error("Error while close connection " + ex.getMessage());
 		}
 		client.increaseThread();
 	}
