@@ -22,13 +22,15 @@ echo "step 2 get source slave's status"
 var=$(cat /var/lib/mysql/relay-log.info | xargs | awk -F" " '{print $1,$2,$3,$4}')
 set -- $var
 echo "relay bin is $1, pos is $2, master bin is $3, pos is $4"
+
+#this should be called in Ubuntu
 sed -e "s/vader-1-vm3/$MASTER/ig" $SCRIPT_HOME/slave-template.sql > $SCRIPT_HOME/grantSlave.sql
-sed -i -e "s/mysql-bin.000002/$3/ig" $SCRIPT_HOME/grantSlave.sql
-sed -i -e "s/=445/=$4/ig" $SCRIPT_HOME/grantSlave.sql
+sed -i "s/mysql-bin.000002/$3/ig" $SCRIPT_HOME/grantSlave.sql
+sed -i "s/=445/=$4/ig" $SCRIPT_HOME/grantSlave.sql
 
 scp $SCRIPT_HOME/grantSlave.sql root@$TARGET:$SCRIPT_HOME/grantSlave.sql
 
-rm -rf $SCRIPT_HOME/grantSlave.sql
+rm -rf $SCRIPT_HOME/grantSlave.sql*
 
 echo "step 3 stop target $TARGET"
 ssh root@$TARGET "/etc/init.d/mysql stop"
