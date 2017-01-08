@@ -37,8 +37,10 @@ public class LoadBalancer {
 	}
 
 	public synchronized Server getNextReadServer() {
+		Server server = readQueue.get(nextReadServer);
 		nextReadServer = (nextReadServer + 1) % readQueue.size();
-		return readQueue.get(nextReadServer);
+		LOG.debug("choose read server as " + server.getIp());
+		return server;
 	}
 
 	public synchronized void addServer(Server server) {

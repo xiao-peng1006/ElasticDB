@@ -138,7 +138,7 @@ public class UserSession extends Thread {
 				loadBalancer.getReadQueue().remove(server);
 				loadBalancer.detectFailure();
 			} else {
-				LOG.debug("choose read server as " + server.getIp());
+//				LOG.debug("choose read server as " + server.getIp());
 				return connection;
 			}
 		}
@@ -146,17 +146,12 @@ public class UserSession extends Thread {
 	}
 
 	public void run() {
-		try {
-			synchronized (this) {
-				while (suspendThread)
-					wait();
-			}
-		} catch (InterruptedException e) {
-			LOG.error("Error while running session: " + e.getMessage());
-		}
-
-		while (!client.isEndOfSimulation() && !suspendThread) {
+		while (!client.isEndOfSimulation()) {
 			try {
+				synchronized (this) {
+					while (suspendThread)
+						wait();
+				}
 				// decide of closed or open system
 				double r = rand.nextDouble();
 				if (r < tpcw.mixRate) {
