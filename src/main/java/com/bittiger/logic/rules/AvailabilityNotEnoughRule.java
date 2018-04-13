@@ -7,7 +7,6 @@ import org.easyrules.annotation.Rule;
 import com.bittiger.client.ClientEmulator;
 import com.bittiger.client.Utilities;
 import com.bittiger.logic.ActionType;
-import com.bittiger.logic.Controller;
 
 @Rule(name = "AvailabilityRule", description = "Guarrantee the minimum number of slaves")
 public class AvailabilityNotEnoughRule {
