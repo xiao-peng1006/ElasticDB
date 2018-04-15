@@ -193,8 +193,8 @@ public class ClientEmulator {
 		setEndOfSimulation();
 		if (enableController) {
 			timer.cancel();
-			this.eventQueue.put(ActionType.NoOp);
 			try {
+				this.eventQueue.put(ActionType.NoOp);
 				executor.join();
 				LOG.info("Executor joins");
 				if (enableDestroyer) {
@@ -205,7 +205,6 @@ public class ClientEmulator {
 				LOG.error("Executor/Destroyer has been interrupted.");
 			}
 		}
-		this.monitor.close();
 		for (int i = 0; i < maxNumSessions; i++) {
 			sessions[i].releaseThread();
 			sessions[i].notifyThread();
@@ -227,7 +226,7 @@ public class ClientEmulator {
 				LOG.error("Producer has been interrupted.");
 			}
 		}
-		
+		this.monitor.close();
 		LOG.info("Done\n");
 		Runtime.getRuntime().exit(0);
 	}
