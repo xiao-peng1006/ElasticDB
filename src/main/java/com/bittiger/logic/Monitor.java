@@ -61,7 +61,7 @@ public class Monitor {
 		}
 	}
 
-	private void updateStats(double x, double u, double r, double w, double m) {
+	private void updateStats(double x, double u, double ur, double uw, double r, double w, double m) {
 		Connection connection = null;
 		Statement stmt = null;
 		try {
@@ -70,7 +70,7 @@ public class Monitor {
 					c.getTpcw().username, c.getTpcw().password);
 			connection.setAutoCommit(true);
 			stmt = connection.createStatement();
-			StatsQuery stats = new StatsQuery(x, u, r, w, m);
+			StatsQuery stats = new StatsQuery(x, u, ur, uw, r, w, m);
 			stmt.executeUpdate(stats.getQueryStr());
 			LOG.info("Stats: Interval:" + x + ", Queries:" + u + ", Read:" + r + ", Write:" + w + ", Nodes:" + m);
 		} catch (Exception e) {
@@ -117,6 +117,8 @@ public class Monitor {
 		long totalTime = 0;
 		int count = 0;
 		int totCount = 0;
+		int rCount = 0;
+		int wCount = 0;
 		double avgRead = 0.0;
 		double avgWrite = 0.0;
 		for (int i = rPrevPos; i < rPos; i++) {
@@ -134,6 +136,7 @@ public class Monitor {
 			perf.append(":NA");
 		}
 		totCount += count;
+		rCount=count;
 
 		totalTime = 0;
 		count = 0;
@@ -152,7 +155,9 @@ public class Monitor {
 			perf.append(":NA");
 		}
 		totCount += count;
-		updateStats(seq++, totCount, avgRead, avgWrite, c.getLoadBalancer().getReadQueue().size());
+		wCount=count;
+
+		updateStats(seq++, totCount, rCount, wCount, avgRead, avgWrite, c.getLoadBalancer().getReadQueue().size());
 		return perf.toString();
 	}
 
