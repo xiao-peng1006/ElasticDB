@@ -1,4 +1,5 @@
 #this should be called from source
+#reference: https://dev.mysql.com/doc/refman/8.0/en/replication-howto-additionalslaves.html
 SCRIPT_HOME=/home/ubuntu/elasticDB/scripts
 
 echo "SCRIPT_HOME is set to $SCRIPT_HOME"
@@ -28,18 +29,17 @@ scp $SCRIPT_HOME/grantSlave.sql root@$TARGET:$SCRIPT_HOME/grantSlave.sql
 
 rm -rf $SCRIPT_HOME/grantSlave.sql*
 
-echo "step 3 stop target $TARGET"
+echo "step 3 stop slave at target $TARGET"
 ssh root@$TARGET "/etc/init.d/mysql stop"
 
 echo "step 4 copy files from $SOURCE to target $TARGET"
 servernum=$[ ( $RANDOM % 900  ) + 100 ]
-ssh root@$TARGET "$SCRIPT_HOME/initSlave.sh $SOURCE `expr $servernum`"
+ssh root@$TARGET "$SCRIPT_HOME/initSlave.sh $SOURCE `expr $servernum` stop"
 
-#sounds like it will automatically read it.
-#echo "step 5 set the relay bin"
-#ssh root@$TARGET "mysqlbinlog --start-position=$2 /var/lib/mysql/$1 | mysql --user="$MYSQL_USERNAME" --password="$MYSQL_PASSWORD""
+echo "step 5 set the relay bin"
+ssh root@$TARGET "mysqlbinlog --start-position=$2 /var/lib/mysql/$1 | mysql --user="$MYSQL_USERNAME" --password="$MYSQL_PASSWORD""
 
-echo "step 6 set the master bin"
+echo "step 6 set the master bin and grantSlave will start slave"
 ssh root@$TARGET "mysql --user="$MYSQL_USERNAME" --password="$MYSQL_PASSWORD" < $SCRIPT_HOME/grantSlave.sql"
 
 echo "step 7 start the source slave"

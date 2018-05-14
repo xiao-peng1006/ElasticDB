@@ -50,7 +50,7 @@ target=${SLAVE[$i]}
 echo "restart $target"
 scp $CURRENT_HOME/grantSlave.sql root@$target:$SCRIPT_HOME/grantSlave.sql
 servernum=$(echo $i+2 | bc)
-ssh root@$target "$SCRIPT_HOME/initSlave.sh $MASTER `expr $servernum`"
+ssh root@$target "$SCRIPT_HOME/initSlave.sh $MASTER `expr $servernum` start"
 ssh root@$target "mysql --user="$MYSQL_USERNAME" --password="$MYSQL_PASSWORD" < $SCRIPT_HOME/grantSlave.sql"
 ssh root@$target "rm -rf $SCRIPT_HOME/grantSlave.sql"
 echo "$target restarts"
@@ -61,11 +61,8 @@ for (( i = 0 ; i < ${#CANDIDATE[@]} ; i++ ))
 do
 target=${CANDIDATE[$i]}
 echo "restart $target"
-scp $CURRENT_HOME/grantSlave.sql root@$target:$SCRIPT_HOME/grantSlave.sql
 servernum=$(echo $i+100 | bc)
-ssh root@$target "$SCRIPT_HOME/initSlave.sh $MASTER `expr $servernum`"
-ssh root@$target "mysql --user="$MYSQL_USERNAME" --password="$MYSQL_PASSWORD" < $SCRIPT_HOME/grantSlave.sql"
-ssh root@$target "rm -rf $SCRIPT_HOME/grantSlave.sql"
+ssh root@$target "$SCRIPT_HOME/initSlave.sh $MASTER `expr $servernum` stop"
 echo "$target restarts"
 done
 
