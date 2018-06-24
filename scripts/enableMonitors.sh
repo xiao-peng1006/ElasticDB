@@ -21,7 +21,7 @@ source $LOCAL_SCRIPT_HOME/set_env.sh
 # enable CanvasJS on master
 echo "*** enable CanvasJS on master *********************************"
 ssh root@$MASTER "rm -rf /var/lib/tomcat7/webapps/WebContent"
-ssh root@$MASTER "tar xzvf $TPCW_HOME/WebContent.tar.gz -C /var/lib/tomcat7/webapps" 
+ssh root@$MASTER "tar --warning=no-unknown-keyword -xzvf $TPCW_HOME/WebContent.tar.gz -C /var/lib/tomcat7/webapps" 
 
 # unzip dstats on all servers
 echo "*** unzip dstats on all servers *********************************"
