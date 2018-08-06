@@ -1,4 +1,4 @@
-package com.bittiger.logic;
+package com.bittiger.dbserver;
 
 public class Server {
 	String ip;
@@ -15,6 +15,5 @@ public class Server {
 	public void setIp(String ip) {
 		this.ip = ip;
 	}
-	
-	
+
 }

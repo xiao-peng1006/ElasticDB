@@ -36,6 +36,8 @@ public class TPCWProperties {
 	public String username;
 	public String password;
 
+	public String loadbalancer;
+
 	public int destroyerSleepInterval;
 	public String destroyTarget;
 
@@ -110,6 +112,8 @@ public class TPCWProperties {
 			LOG.info("write is " + Arrays.toString(write));
 
 			loadPropertyFromSetEnv();
+
+			loadbalancer = getProperty("loadbalancer");
 
 			destroyerSleepInterval = Integer.parseInt(getProperty("destroyerSleepInterval"));
 			LOG.info("destroyerSleepInterval is " + destroyerSleepInterval);

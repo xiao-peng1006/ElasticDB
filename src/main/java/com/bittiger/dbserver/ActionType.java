@@ -1,4 +1,4 @@
-package com.bittiger.logic;
+package com.bittiger.dbserver;
 
 public enum ActionType {
 	AvailNotEnoughAddServer, BadPerformanceAddServer, GoodPerformanceRemoveServer, NoOp

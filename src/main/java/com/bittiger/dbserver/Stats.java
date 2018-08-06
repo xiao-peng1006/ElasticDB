@@ -1,4 +1,4 @@
-package com.bittiger.logic;
+package com.bittiger.dbserver;
 
 public class Stats {
 	public String type;
@@ -15,7 +15,7 @@ public class Stats {
 		this.end = end;
 		this.duration = end - start;
 	}
-	
+
 	public String toString() {
 		return sessionId + "," + type + "," + duration;
 	}

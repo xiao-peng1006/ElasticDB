@@ -15,8 +15,7 @@ public class OpenSystemTicketProducer extends Thread {
 	private final BlockingQueue<Integer> queue;
 	private Random rand;
 	private double[] rate;
-	private static transient final Logger LOG = LoggerFactory
-			.getLogger(OpenSystemTicketProducer.class);
+	private static transient final Logger LOG = LoggerFactory.getLogger(OpenSystemTicketProducer.class);
 
 	public OpenSystemTicketProducer(ClientEmulator ce, BlockingQueue<Integer> bQueue) {
 		this.tpcw = ce.getTpcw();
@@ -36,8 +35,7 @@ public class OpenSystemTicketProducer extends Thread {
 			long currTime = System.currentTimeMillis();
 			if (currTime - startTime < (warmup + mi + warmdown)) {
 				double r = rand.nextDouble();
-				int rlIndex = (int) (Math.floor((double) (currTime - startTime)
-						/ tpcw.interval));
+				int rlIndex = (int) (Math.floor((double) (currTime - startTime) / tpcw.interval));
 				double sendrate = 0 - rate[rlIndex];
 				LOG.debug("OpenSystemTicketProducer send rate: " + sendrate);
 				long wait = ((long) (sendrate * Math.log(r)));

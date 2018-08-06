@@ -2,7 +2,6 @@ package com.bittiger.client;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Timer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.io.IOException;
@@ -14,15 +13,25 @@ import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.bittiger.logic.ActionType;
-import com.bittiger.logic.Controller;
-import com.bittiger.logic.Destroyer;
-import com.bittiger.logic.EventQueue;
-import com.bittiger.logic.Executor;
-import com.bittiger.logic.LoadBalancer;
-import com.bittiger.logic.Monitor;
+import com.bittiger.dbserver.ElasticDatabase;
 
 public class ClientEmulator {
+
+	private static transient final Logger LOG = LoggerFactory.getLogger(ClientEmulator.class);
+
+	private static ClientEmulator clientEmulator;
+
+	// private constructor to force use of
+	// getInstance() to create Singleton object
+	private ClientEmulator() {
+		tpcw = new TPCWProperties("tpcw");
+	}
+
+	public static ClientEmulator getInstance() {
+		if (clientEmulator == null)
+			clientEmulator = new ClientEmulator();
+		return clientEmulator;
+	}
 
 	@Option(name = "-c", usage = "enable controller")
 	private boolean enableController;
@@ -33,46 +42,10 @@ public class ClientEmulator {
 	private List<String> arguments = new ArrayList<String>();
 	private boolean endOfSimulation = false;
 	private long startTime;
-	
-	/**
-	 * The tpcw configurations
-	 */
-	private TPCWProperties tpcw = null;
-	
-	/**
-	 * The monitor to collect metrics
-	 */
-	private Monitor monitor;
-	
-	/**
-	 * The controller that implements control logic
-	 */
-	private Controller controller;
-	
-	/**
-	 * The executor that executes commands
-	 */
-	private Executor executor;
-	
-	/**
-	 * The destroyer that is used to mimic the server down situation
-	 */
-	private Destroyer destroyer;
-	
-	/**
-	 * The loadbalancer that is used to distribute load
-	 */
-	private LoadBalancer loadBalancer;
+
 	OpenSystemTicketProducer producer;
-	EventQueue eventQueue = null;
 
-	private static transient final Logger LOG = LoggerFactory.getLogger(ClientEmulator.class);
-
-	public ClientEmulator() throws IOException, InterruptedException {
-		super();
-		tpcw = new TPCWProperties("tpcw");
-		eventQueue = new EventQueue();
-	}
+	TPCWProperties tpcw = null;
 
 	private synchronized void setEndOfSimulation() {
 		endOfSimulation = true;
@@ -85,6 +58,9 @@ public class ClientEmulator {
 	}
 
 	public void start(String[] args) {
+
+		ElasticDatabase.getInstance().setClientEmulator(this);
+
 		CmdLineParser parser = new CmdLineParser(this);
 		try {
 			// parse the arguments.
@@ -112,20 +88,7 @@ public class ClientEmulator {
 		long warmup = tpcw.warmup;
 		long mi = tpcw.mi;
 		long warmdown = tpcw.warmdown;
-		
-		Timer timer = null;
-		if (enableController) {
-			this.controller = new Controller(this);
-			timer = new Timer();
-			timer.schedule(this.controller, warmup, tpcw.interval);
-			this.executor = new Executor(this);
-			this.executor.start();
-			if (enableDestroyer) {
-				destroyer = new Destroyer(this);
-				destroyer.start();
-			}
-		}
-		
+
 		int maxNumSessions = 0;
 		int workloads[] = tpcw.workloads;
 		for (int i = 0; i < workloads.length; i++) {
@@ -155,10 +118,8 @@ public class ClientEmulator {
 			producer.start();
 		}
 
-		this.monitor = new Monitor(this);
-		this.monitor.init();
-		
-		this.loadBalancer = new LoadBalancer(this);
+		ElasticDatabase.getInstance().initialize(enableController, enableDestroyer);
+
 		LOG.info("Client starts......");
 		this.startTime = System.currentTimeMillis();
 		long endTime = startTime + warmup + mi + warmdown;
@@ -191,20 +152,9 @@ public class ClientEmulator {
 			currWLInx = ((currWLInx + 1) % workloads.length);
 		}
 		setEndOfSimulation();
-		if (enableController) {
-			timer.cancel();
-			try {
-				this.eventQueue.put(ActionType.NoOp);
-				executor.join();
-				LOG.info("Executor joins");
-				if (enableDestroyer) {
-					destroyer.join();
-					LOG.info("Destroyer joins");
-				}
-			} catch (java.lang.InterruptedException ie) {
-				LOG.error("Executor/Destroyer has been interrupted.");
-			}
-		}
+
+		ElasticDatabase.getInstance().finish(enableController, enableDestroyer);
+
 		for (int i = 0; i < maxNumSessions; i++) {
 			sessions[i].releaseThread();
 			sessions[i].notifyThread();
@@ -230,22 +180,6 @@ public class ClientEmulator {
 		Runtime.getRuntime().exit(0);
 	}
 
-	public Monitor getMonitor() {
-		return monitor;
-	}
-
-	public void setMonitor(Monitor monitor) {
-		this.monitor = monitor;
-	}
-
-	public Controller getController() {
-		return controller;
-	}
-
-	public void setController(Controller controller) {
-		this.controller = controller;
-	}
-
 	public TPCWProperties getTpcw() {
 		return tpcw;
 	}
@@ -262,25 +196,8 @@ public class ClientEmulator {
 		this.startTime = startTime;
 	}
 
-	public LoadBalancer getLoadBalancer() {
-		return loadBalancer;
-	}
-
-	public void setLoadBalancer(LoadBalancer loadBalancer) {
-		this.loadBalancer = loadBalancer;
-	}
-
-	public EventQueue getEventQueue() {
-		return eventQueue;
-	}
-
-	public void setEventQueue(EventQueue eventQueue) {
-		this.eventQueue = eventQueue;
-	}
-
 	public static void main(String[] args) throws IOException, InterruptedException {
-		ClientEmulator client = new ClientEmulator();
-		client.start(args);
+		ClientEmulator.getInstance().start(args);
 	}
 
 }

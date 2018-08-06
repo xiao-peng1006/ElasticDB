@@ -4,14 +4,13 @@ import org.easyrules.annotation.Action;
 import org.easyrules.annotation.Condition;
 import org.easyrules.annotation.Rule;
 
-import com.bittiger.client.ClientEmulator;
-import com.bittiger.client.Utilities;
-import com.bittiger.logic.ActionType;
+import com.bittiger.dbserver.ActionType;
+import com.bittiger.dbserver.ElasticDatabase;
+import com.bittiger.misc.Utilities;
 
 @Rule(name = "AvailabilityRule", description = "Guarrantee the minimum number of slaves")
 public class AvailabilityNotEnoughRule {
 
-	private ClientEmulator c;
 	private int readQueueSize;
 
 	@Condition
@@ -23,11 +22,10 @@ public class AvailabilityNotEnoughRule {
 
 	@Action
 	public void addServer() throws Exception {
-		c.getEventQueue().put(ActionType.AvailNotEnoughAddServer);
+		ElasticDatabase.getInstance().getEventQueue().put(ActionType.AvailNotEnoughAddServer);
 	}
 
-	public void setInput(ClientEmulator c, int readQueueSize) {
-		this.c = c;
+	public void setInput(int readQueueSize) {
 		this.readQueueSize = readQueueSize;
 	}
 

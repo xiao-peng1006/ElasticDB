@@ -1,4 +1,4 @@
-package com.bittiger.logic;
+package com.bittiger.dbserver;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -10,39 +10,33 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.bittiger.client.ClientEmulator;
-import com.bittiger.client.Utilities;
+import com.bittiger.misc.Utilities;
 import com.bittiger.querypool.CleanStatsQuery;
 import com.bittiger.querypool.StatsQuery;
 
 public class Monitor {
 
-	public final Vector<Stats> read;
-	public final Vector<Stats> write;
-	private ClientEmulator c;
+	public final Vector<Stats> read = new Vector<Stats>();
+	public final Vector<Stats> write = new Vector<Stats>();
 	private int seq = 0;
 	private int rPos = 0;
 	private int wPos = 0;
 
 	private static transient final Logger LOG = LoggerFactory.getLogger(Monitor.class);
 
-	public Monitor(ClientEmulator c) {
-		read = new Vector<Stats>();
-		write = new Vector<Stats>();
-		this.c = c;
-	}
-
-	public void init() {
+	public void initialize() {
 		Connection connection = null;
 		Statement stmt = null;
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			connection = DriverManager.getConnection(Utilities.getStatsUrl(c.getTpcw().writeQueue),
-					c.getTpcw().username, c.getTpcw().password);
+			connection = DriverManager.getConnection(
+					Utilities.getStatsUrl(ClientEmulator.getInstance().getTpcw().writeQueue),
+					ClientEmulator.getInstance().getTpcw().username, ClientEmulator.getInstance().getTpcw().password);
 			connection.setAutoCommit(true);
 			stmt = connection.createStatement();
 			CleanStatsQuery clean = new CleanStatsQuery();
 			stmt.executeUpdate(clean.getQueryStr());
-			LOG.info("Clean stats at server " + c.getTpcw().writeQueue);
+			LOG.info("Clean stats at server " + ClientEmulator.getInstance().getTpcw().writeQueue);
 		} catch (Exception e) {
 			LOG.error(e.toString());
 		} finally {
@@ -66,8 +60,9 @@ public class Monitor {
 		Statement stmt = null;
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			connection = DriverManager.getConnection(Utilities.getStatsUrl(c.getTpcw().writeQueue),
-					c.getTpcw().username, c.getTpcw().password);
+			connection = DriverManager.getConnection(
+					Utilities.getStatsUrl(ClientEmulator.getInstance().getTpcw().writeQueue),
+					ClientEmulator.getInstance().getTpcw().username, ClientEmulator.getInstance().getTpcw().password);
 			connection.setAutoCommit(true);
 			stmt = connection.createStatement();
 			StatsQuery stats = new StatsQuery(x, u, ur, uw, r, w, m);
@@ -112,8 +107,11 @@ public class Monitor {
 		}
 		StringBuffer perf = new StringBuffer();
 		long currTime = System.currentTimeMillis();
-		long validStartTime = Math.max(c.getStartTime() + c.getTpcw().warmup, currTime - c.getTpcw().interval);
-		long validEndTime = Math.min(c.getStartTime() + c.getTpcw().warmup + c.getTpcw().mi, currTime);
+		long validStartTime = Math.max(
+				ClientEmulator.getInstance().getStartTime() + ClientEmulator.getInstance().getTpcw().warmup,
+				currTime - ClientEmulator.getInstance().getTpcw().interval);
+		long validEndTime = Math.min(ClientEmulator.getInstance().getStartTime()
+				+ ClientEmulator.getInstance().getTpcw().warmup + ClientEmulator.getInstance().getTpcw().mi, currTime);
 		long totalTime = 0;
 		int count = 0;
 		int totCount = 0;
@@ -136,7 +134,7 @@ public class Monitor {
 			perf.append(":NA");
 		}
 		totCount += count;
-		rCount=count;
+		rCount = count;
 
 		totalTime = 0;
 		count = 0;
@@ -155,9 +153,10 @@ public class Monitor {
 			perf.append(":NA");
 		}
 		totCount += count;
-		wCount=count;
+		wCount = count;
 
-		updateStats(seq++, totCount, rCount, wCount, avgRead, avgWrite, c.getLoadBalancer().getReadQueue().size());
+		updateStats(seq++, totCount, rCount, wCount, avgRead, avgWrite,
+				ElasticDatabase.getInstance().getLoadBalancer().getReadQueue().size());
 		return perf.toString();
 	}
 

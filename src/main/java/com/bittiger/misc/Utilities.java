@@ -1,4 +1,4 @@
-package com.bittiger.client;
+package com.bittiger.misc;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -7,7 +7,7 @@ import java.io.InputStreamReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.bittiger.logic.Server;
+import com.bittiger.dbserver.Server;
 
 public class Utilities {
 	private static transient final Logger LOG = LoggerFactory.getLogger(Utilities.class);

@@ -3,15 +3,13 @@ package com.bittiger.client;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.bittiger.logic.LoadBalancer;
-import com.bittiger.logic.Server;
+import com.bittiger.dbserver.ElasticDatabase;
 import com.bittiger.querypool.QueryMetaData;
 
 public class UserSession extends Thread {
@@ -81,60 +79,6 @@ public class UserSession extends Thread {
 		return sql;
 	}
 
-	private Connection getNextConnection(String sql) {
-		// read
-		if (sql.contains("b")) {
-			return getNextReadConnection(client.getLoadBalancer());
-		} else {
-			return getNextWriteConnection(client.getLoadBalancer());
-		}
-	}
-
-	public Connection getNextWriteConnection(LoadBalancer loadBalancer) {
-		Server server = null;
-		Connection connection = null;
-		try {
-			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			// DriverManager.setLoginTimeout(5);
-			server = loadBalancer.getWriteQueue();
-			connection = (Connection) DriverManager.getConnection(Utilities.getUrl(server), client.getTpcw().username,
-					client.getTpcw().password);
-			connection.setAutoCommit(true);
-		} catch (Exception e) {
-			LOG.error(e.toString());
-		}
-		LOG.debug("choose write server as " + server.getIp());
-		return connection;
-	}
-
-	public Connection getNextReadConnection(LoadBalancer loadBalancer) {
-		Server server = null;
-		Connection connection = null;
-		while (connection == null) {
-			int tryTime = 0;
-			server = loadBalancer.getNextReadServer();
-			while (connection == null && tryTime++ < Utilities.retryTimes) {
-				try {
-					Class.forName("com.mysql.jdbc.Driver").newInstance();
-					connection = (Connection) DriverManager.getConnection(Utilities.getUrl(server),
-							client.getTpcw().username, client.getTpcw().password);
-					connection.setAutoCommit(true);
-				} catch (Exception e) {
-					LOG.error(e.toString());
-				}
-			}
-			if (connection == null) {
-				LOG.error(server.getIp() + " is down. ");
-				loadBalancer.getReadQueue().remove(server);
-				loadBalancer.detectFailure();
-			} else {
-				// LOG.debug("choose read server as " + server.getIp());
-				return connection;
-			}
-		}
-		return null;
-	}
-
 	public void run() {
 		while (!client.isEndOfSimulation()) {
 			try {
@@ -158,7 +102,7 @@ public class UserSession extends Thread {
 			Connection connection = null;
 			Statement stmt = null;
 			try {
-				connection = getNextConnection(queryclass);
+				connection = ElasticDatabase.getInstance().getLoadBalancer().getNextConnection(queryclass);
 				String classname = "com.bittiger.querypool." + queryclass;
 				QueryMetaData query = (QueryMetaData) Class.forName(classname).newInstance();
 				String command = query.getQueryStr();
@@ -167,12 +111,12 @@ public class UserSession extends Thread {
 					long start = System.currentTimeMillis();
 					stmt.executeQuery(command);
 					long end = System.currentTimeMillis();
-					client.getMonitor().addQuery(this.id, queryclass, start, end);
+					ElasticDatabase.getInstance().getMonitor().addQuery(this.id, queryclass, start, end);
 				} else {
 					long start = System.currentTimeMillis();
 					stmt.executeUpdate(command);
 					long end = System.currentTimeMillis();
-					client.getMonitor().addQuery(this.id, queryclass, start, end);
+					ElasticDatabase.getInstance().getMonitor().addQuery(this.id, queryclass, start, end);
 				}
 			} catch (Exception ex) {
 				LOG.error("Error while executing query: " + ex.getMessage());
