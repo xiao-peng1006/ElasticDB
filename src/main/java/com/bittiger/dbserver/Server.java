@@ -1,12 +1,11 @@
 package com.bittiger.dbserver;
 
-public class Server {
+import java.sql.Connection;
+
+public abstract class Server {
 	String ip;
 
-	public Server(String ip) {
-		super();
-		this.ip = ip;
-	}
+	public abstract Connection getConnection() throws Exception;
 
 	public String getIp() {
 		return ip;

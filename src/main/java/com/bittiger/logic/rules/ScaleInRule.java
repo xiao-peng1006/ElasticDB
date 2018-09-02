@@ -5,7 +5,7 @@ import org.easyrules.annotation.Condition;
 import org.easyrules.annotation.Rule;
 
 import com.bittiger.dbserver.ActionType;
-import com.bittiger.dbserver.ElasticDatabase;
+import com.bittiger.dbserver.EventQueue;
 
 @Rule(name = "ScaleInRule", description = "Check if we need to remove server for better resource usage")
 public class ScaleInRule {
@@ -21,7 +21,7 @@ public class ScaleInRule {
 
 	@Action
 	public void removeServer() throws Exception {
-		ElasticDatabase.getInstance().getEventQueue().put(ActionType.GoodPerformanceRemoveServer);
+		EventQueue.getInstance().put(ActionType.GoodPerformanceRemoveServer);
 	}
 
 	public void setInput(String perf) {

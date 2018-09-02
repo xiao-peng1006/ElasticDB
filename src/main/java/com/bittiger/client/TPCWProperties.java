@@ -29,9 +29,11 @@ public class TPCWProperties {
 	public double write[];
 
 	// Information about server
-	public String writeQueue;
-	public String readQueue[];
-	public String candidateQueue[];
+	public String writeServer;
+	public String readServer[];
+	public String candidateServer[];
+	public String monitorServer;
+
 
 	public String username;
 	public String password;
@@ -139,37 +141,27 @@ public class TPCWProperties {
 			// load a properties file
 			prop.load(input);
 
-			// #!/bin/bash
-			//
-			// set -o allexport
-			//
-			// MYSQL_USERNAME='root'
-			// MYSQL_PASSWORD='TigerBit!2016'
-			//
-			// # HOSTS
-			// #MASTER=35.162.86.105
-			// #SLAVE=(54.204.168.204 35.161.215.21)
-			// #CANDIDATE=(35.164.142.220)
-			//
-			// set +o allexport
 			// get the property value and print it out
 			username = prop.getProperty("MYSQL_USERNAME").replaceAll("\'", "");
 			password = prop.getProperty("MYSQL_PASSWORD").replaceAll("\'", "");
-			LOG.info("MySQL usr/pass is " + username + "," + password);
+			LOG.info("usr/pass is " + username + "," + password);
 
-			writeQueue = processServer(prop.getProperty("MASTER"))[0];
-			LOG.info("writeQueue is " + writeQueue);
+			writeServer = processServer(prop.getProperty("MASTER"))[0];
+			LOG.info("writeServer is " + writeServer);
 			String[] slaves = processServer(prop.getProperty("SLAVE"));
-			readQueue = new String[1 + slaves.length];
-			readQueue[0] = writeQueue;
+			readServer = new String[1 + slaves.length];
+			readServer[0] = writeServer;
 			for (int i = 0; i < slaves.length; i++) {
-				readQueue[i + 1] = slaves[i];
+				readServer[i + 1] = slaves[i];
 			}
-			LOG.info("readQueue is " + Arrays.toString(readQueue));
+			LOG.info("readServer is " + Arrays.toString(readServer));
 
-			candidateQueue = processServer(prop.getProperty("CANDIDATE"));
-			LOG.info("candidateQueue is " + Arrays.toString(candidateQueue));
-
+			candidateServer = processServer(prop.getProperty("CANDIDATE"));
+			LOG.info("candidateServer is " + Arrays.toString(candidateServer));
+			
+			monitorServer = processServer(prop.getProperty("MONITOR"))[0];
+			LOG.info("monitorServer is " + monitorServer);
+			
 			destroyTarget = slaves[0];
 			LOG.info("destroyTarget is " + destroyTarget);
 		} catch (IOException ex) {

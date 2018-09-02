@@ -1,8 +1,6 @@
 package com.bittiger.dbserver;
 
 import java.util.Date;
-import java.util.TimerTask;
-
 import org.easyrules.api.RulesEngine;
 import org.easyrules.core.RulesEngineBuilder;
 import org.slf4j.Logger;
@@ -11,13 +9,12 @@ import org.slf4j.LoggerFactory;
 import com.bittiger.logic.rules.ScaleInRule;
 import com.bittiger.logic.rules.ScaleOutRule;
 
-public class Controller extends TimerTask {
+public class Controller {
 	private static transient final Logger LOG = LoggerFactory.getLogger(Controller.class);
 
-	public void run() {
+	public void run(String perf) {
 		Date date = new Date();
 		LOG.info("Controller is running at " + date.toString());
-		String perf = ElasticDatabase.getInstance().getMonitor().readPerformance();
 		if (perf != null) {
 			/**
 			 * Create a rules engine and register the business rule
@@ -31,7 +28,5 @@ public class Controller extends TimerTask {
 			rulesEngine.registerRule(scaleInRule);
 			rulesEngine.fireRules();
 		}
-
 	}
-
 }

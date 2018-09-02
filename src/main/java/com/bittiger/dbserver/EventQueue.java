@@ -3,7 +3,24 @@ package com.bittiger.dbserver;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import com.bittiger.client.ClientEmulator;
+
 public class EventQueue {
+	
+	private static EventQueue eventqueue;
+
+	// private constructor to force use of
+	// getInstance() to create Singleton object
+	private EventQueue() {
+	}
+
+	public static EventQueue getInstance() {
+		if (eventqueue == null) {
+			eventqueue = new EventQueue();
+		}
+		return eventqueue;
+	}
+	
 	Queue<ActionType> queue = new LinkedList<ActionType>();
 
 	public synchronized ActionType peek() {

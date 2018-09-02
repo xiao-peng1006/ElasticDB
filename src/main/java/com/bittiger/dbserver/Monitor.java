@@ -30,13 +30,13 @@ public class Monitor {
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			connection = DriverManager.getConnection(
-					Utilities.getStatsUrl(ClientEmulator.getInstance().getTpcw().writeQueue),
+					Utilities.getMySQLStatsUrl(ClientEmulator.getInstance().getTpcw().monitorServer),
 					ClientEmulator.getInstance().getTpcw().username, ClientEmulator.getInstance().getTpcw().password);
 			connection.setAutoCommit(true);
 			stmt = connection.createStatement();
 			CleanStatsQuery clean = new CleanStatsQuery();
 			stmt.executeUpdate(clean.getQueryStr());
-			LOG.info("Clean stats at server " + ClientEmulator.getInstance().getTpcw().writeQueue);
+			LOG.info("Clean stats at server " + ClientEmulator.getInstance().getTpcw().monitorServer);
 		} catch (Exception e) {
 			LOG.error(e.toString());
 		} finally {
@@ -61,7 +61,7 @@ public class Monitor {
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			connection = DriverManager.getConnection(
-					Utilities.getStatsUrl(ClientEmulator.getInstance().getTpcw().writeQueue),
+					Utilities.getMySQLStatsUrl(ClientEmulator.getInstance().getTpcw().monitorServer),
 					ClientEmulator.getInstance().getTpcw().username, ClientEmulator.getInstance().getTpcw().password);
 			connection.setAutoCommit(true);
 			stmt = connection.createStatement();

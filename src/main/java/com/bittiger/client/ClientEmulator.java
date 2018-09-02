@@ -24,7 +24,6 @@ public class ClientEmulator {
 	// private constructor to force use of
 	// getInstance() to create Singleton object
 	private ClientEmulator() {
-		tpcw = new TPCWProperties("tpcw");
 	}
 
 	public static ClientEmulator getInstance() {
@@ -37,6 +36,8 @@ public class ClientEmulator {
 	private boolean enableController;
 	@Option(name = "-d", usage = "enable destroyer")
 	private boolean enableDestroyer;
+	@Option(name = "-h", usage = "use Hive servers")
+	private boolean useHiveServer;
 	// receives other command line parameters than options
 	@Argument
 	private List<String> arguments = new ArrayList<String>();
@@ -49,8 +50,7 @@ public class ClientEmulator {
 
 	private synchronized void setEndOfSimulation() {
 		endOfSimulation = true;
-		LOG.info("Trigger ClientEmulator.isEndOfSimulation()= " + this.isEndOfSimulation());
-
+		LOG.info("Trigger ClientEmulator.isEndOfSimulation()=" + this.isEndOfSimulation());
 	}
 
 	public synchronized boolean isEndOfSimulation() {
@@ -58,10 +58,10 @@ public class ClientEmulator {
 	}
 
 	public void start(String[] args) {
-
 		ElasticDatabase.getInstance().setClientEmulator(this);
 
 		CmdLineParser parser = new CmdLineParser(this);
+
 		try {
 			// parse the arguments.
 			parser.parseArgument(args);
@@ -72,18 +72,31 @@ public class ClientEmulator {
 			// you'll get this exception. this will report
 			// an error message.
 			System.err.println(e.getMessage());
-			System.err.println("java ClientEmulator [-c -d]");
+			System.err.println("java ClientEmulator [-c -d -h]");
 			// print the list of available options
 			parser.printUsage(System.err);
 			System.err.println();
 			return;
 		}
 
-		if (enableController)
-			LOG.info("-c flag is set");
-
-		if (enableDestroyer)
-			LOG.info("-d flag is set");
+		if (useHiveServer) {
+			LOG.info("-h flag is set");
+			LOG.info("We will use hive servers");
+			tpcw = new TPCWProperties("hive");
+			enableController = false;
+			enableDestroyer = false;
+		}
+		// right now, we disable controller when we use hive servers
+		else {
+			if (enableController) {
+				LOG.info("-c flag is set");
+				if (enableDestroyer) {
+					LOG.info("-d flag is set");
+				}
+				LOG.info("We will use mysql servers");
+			}
+			tpcw = new TPCWProperties("tpcw");
+		}
 
 		long warmup = tpcw.warmup;
 		long mi = tpcw.mi;
@@ -118,7 +131,7 @@ public class ClientEmulator {
 			producer.start();
 		}
 
-		ElasticDatabase.getInstance().initialize(enableController, enableDestroyer);
+		ElasticDatabase.getInstance().initialize(enableController, enableDestroyer, useHiveServer);
 
 		LOG.info("Client starts......");
 		this.startTime = System.currentTimeMillis();

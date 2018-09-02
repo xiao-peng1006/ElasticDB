@@ -2,9 +2,6 @@ package com.bittiger.client;
 
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,40 +96,14 @@ public class UserSession extends Thread {
 			}
 
 			String queryclass = computeNextSql(tpcw.rwratio, tpcw.read, tpcw.write);
-			Connection connection = null;
-			Statement stmt = null;
+			String classname = "com.bittiger.querypool." + queryclass;
 			try {
-				connection = ElasticDatabase.getInstance().getLoadBalancer().getNextConnection(queryclass);
-				String classname = "com.bittiger.querypool." + queryclass;
 				QueryMetaData query = (QueryMetaData) Class.forName(classname).newInstance();
 				String command = query.getQueryStr();
-				stmt = connection.createStatement();
-				if (queryclass.contains("b")) {
-					long start = System.currentTimeMillis();
-					stmt.executeQuery(command);
-					long end = System.currentTimeMillis();
-					ElasticDatabase.getInstance().getMonitor().addQuery(this.id, queryclass, start, end);
-				} else {
-					long start = System.currentTimeMillis();
-					stmt.executeUpdate(command);
-					long end = System.currentTimeMillis();
-					ElasticDatabase.getInstance().getMonitor().addQuery(this.id, queryclass, start, end);
-				}
+				// id is like customer information.
+				ElasticDatabase.getInstance().getLoadBalancer().execute(id, queryclass, command);
 			} catch (Exception ex) {
 				LOG.error("Error while executing query: " + ex.getMessage());
-			} finally {
-				if (stmt != null)
-					try {
-						stmt.close();
-					} catch (SQLException e) {
-						e.printStackTrace();
-					}
-				if (connection != null)
-					try {
-						connection.close();
-					} catch (SQLException e) {
-						e.printStackTrace();
-					}
 			}
 		}
 	}

@@ -5,7 +5,7 @@ import org.easyrules.annotation.Condition;
 import org.easyrules.annotation.Rule;
 
 import com.bittiger.dbserver.ActionType;
-import com.bittiger.dbserver.ElasticDatabase;
+import com.bittiger.dbserver.EventQueue;
 
 @Rule(name = "ScaleOutRule", description = "Check if we need to add server for better performance")
 public class ScaleOutRule {
@@ -21,7 +21,7 @@ public class ScaleOutRule {
 
 	@Action
 	public void addServer() throws Exception {
-		ElasticDatabase.getInstance().getEventQueue().put(ActionType.BadPerformanceAddServer);
+		EventQueue.getInstance().put(ActionType.BadPerformanceAddServer);
 	}
 
 	public void setInput(String perf) {

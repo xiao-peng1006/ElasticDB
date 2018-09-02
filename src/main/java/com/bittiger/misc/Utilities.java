@@ -3,6 +3,8 @@ package com.bittiger.misc;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.DriverManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,12 +18,17 @@ public class Utilities {
 
 	public static final int minimumSlave = 3;
 
-	public static String getUrl(Server server) {
-		return "jdbc:mysql://" + server.getIp() + "/tpcw";
+	public static String getMySQLUrl(String ip) {
+		return "jdbc:mysql://" + ip + "/tpcw?connect_timeout=10";
 	}
 
-	public static String getStatsUrl(String serverIp) {
-		return "jdbc:mysql://" + serverIp + "/canvasjs_db";
+	public static String getHiveUrl(String ip) {
+		// example: "jdbc:hive2://52.40.250.0:10000/default", "hadoop", "");
+		return "jdbc:hive2://" + ip + ":10000/default";
+	}
+
+	public static String getMySQLStatsUrl(String ip) {
+		return "jdbc:mysql://" + ip + "/canvasjs_db";
 	}
 
 	public static boolean scaleOut(String source, String target, String master)

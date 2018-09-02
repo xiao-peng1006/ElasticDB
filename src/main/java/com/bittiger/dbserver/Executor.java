@@ -15,7 +15,7 @@ public class Executor extends Thread {
 		// Executor executors the events in the queue one by one.
 		LOG.info("Executor starts......");
 		while (true) {
-			ActionType actionType = ElasticDatabase.getInstance().getEventQueue().peek();
+			ActionType actionType = EventQueue.getInstance().peek();
 			long currTime = System.currentTimeMillis();
 			if (currTime > ClientEmulator.getInstance().getStartTime() + ClientEmulator.getInstance().getTpcw().warmup
 					+ ClientEmulator.getInstance().getTpcw().mi) {
@@ -54,7 +54,7 @@ public class Executor extends Thread {
 				}
 				LOG.info(actionType + " request done");
 				// now consume the event
-				ElasticDatabase.getInstance().getEventQueue().get();
+				EventQueue.getInstance().get();
 			} catch (Exception e) {
 				LOG.error(e.getMessage());
 			}

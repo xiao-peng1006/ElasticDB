@@ -21,19 +21,26 @@ public class ElasticDatabase {
 	}
 
 	public static ElasticDatabase getInstance() {
-		if (db == null)
+		if (db == null) {
 			db = new ElasticDatabase();
+		}
 		return db;
 	}
 
 	private Timer timer = null;
 
-	public void initialize(boolean enableController, boolean enableDestroyer) {
+	public void initialize(boolean enableController, boolean enableDestroyer, boolean useHiveServer) {
+		this.enableController = enableController;
+		this.enableDestroyer = enableDestroyer;
+		this.useHiveServer = useHiveServer;
+		
+		timer = new Timer();
+		this.timeTrigger = new TimeTrigger();
+		timer.schedule(this.timeTrigger, ClientEmulator.getInstance().getTpcw().warmup,
+				ClientEmulator.getInstance().getTpcw().interval);
+		
 		if (enableController) {
 			this.controller = new Controller();
-			timer = new Timer();
-			timer.schedule(this.controller, ClientEmulator.getInstance().getTpcw().warmup,
-					ClientEmulator.getInstance().getTpcw().interval);
 			this.executor = new Executor();
 			this.executor.start();
 			if (enableDestroyer) {
@@ -64,7 +71,7 @@ public class ElasticDatabase {
 		if (enableController) {
 			timer.cancel();
 			try {
-				this.eventQueue.put(ActionType.NoOp);
+				EventQueue.getInstance().put(ActionType.NoOp);
 				executor.join();
 				LOG.info("Executor joins");
 				if (enableDestroyer) {
@@ -76,11 +83,22 @@ public class ElasticDatabase {
 			}
 		}
 	}
+	
+	boolean enableController;
+	
+	boolean enableDestroyer;
+	
+	boolean useHiveServer;
 
 	/**
 	 * The monitor to collect metrics
 	 */
 	private Monitor monitor;
+	
+	/**
+	 * The time trigger that triggers monitor record and controller
+	 */
+	private TimeTrigger timeTrigger;
 
 	/**
 	 * The controller that implements control logic
@@ -101,11 +119,6 @@ public class ElasticDatabase {
 	 * The loadbalancer that is used to distribute load
 	 */
 	private LoadBalancer loadBalancer;
-
-	/**
-	 * The event queue to coordinate producer and consumer
-	 */
-	private EventQueue eventQueue = null;
 
 	public Monitor getMonitor() {
 		return monitor;
@@ -147,20 +160,36 @@ public class ElasticDatabase {
 		this.loadBalancer = loadBalancer;
 	}
 
-	public EventQueue getEventQueue() {
-		return eventQueue;
-	}
-
-	public void setEventQueue(EventQueue eventQueue) {
-		this.eventQueue = eventQueue;
-	}
-
 	public ClientEmulator getClientEmulator() {
 		return clientEmulator;
 	}
 
 	public void setClientEmulator(ClientEmulator clientEmulator) {
 		this.clientEmulator = clientEmulator;
+	}
+
+	public boolean isEnableController() {
+		return enableController;
+	}
+
+	public void setEnableController(boolean enableController) {
+		this.enableController = enableController;
+	}
+
+	public boolean isEnableDestroyer() {
+		return enableDestroyer;
+	}
+
+	public void setEnableDestroyer(boolean enableDestroyer) {
+		this.enableDestroyer = enableDestroyer;
+	}
+
+	public boolean isUseHiveServer() {
+		return useHiveServer;
+	}
+
+	public void setUseHiveServer(boolean useHiveServer) {
+		this.useHiveServer = useHiveServer;
 	}
 
 }

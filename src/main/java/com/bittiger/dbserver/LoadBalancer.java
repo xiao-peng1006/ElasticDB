@@ -1,7 +1,8 @@
 package com.bittiger.dbserver;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,12 +22,57 @@ public abstract class LoadBalancer {
 	private static transient final Logger LOG = LoggerFactory.getLogger(LoadBalancer.class);
 
 	public LoadBalancer() {
-		writeQueue = new Server(ClientEmulator.getInstance().getTpcw().writeQueue);
-		for (int i = 0; i < ClientEmulator.getInstance().getTpcw().readQueue.length; i++) {
-			readQueue.add(new Server(ClientEmulator.getInstance().getTpcw().readQueue[i]));
+		if (!ElasticDatabase.getInstance().isUseHiveServer()) {
+			writeQueue = new MySQLServer(ClientEmulator.getInstance().getTpcw().writeServer);
+			for (int i = 0; i < ClientEmulator.getInstance().getTpcw().readServer.length; i++) {
+				readQueue.add(new MySQLServer(ClientEmulator.getInstance().getTpcw().readServer[i]));
+			}
+			for (int i = 0; i < ClientEmulator.getInstance().getTpcw().candidateServer.length; i++) {
+				candidateQueue.add(new MySQLServer(ClientEmulator.getInstance().getTpcw().candidateServer[i]));
+			}
+		} else {
+			writeQueue = new HiveServer(ClientEmulator.getInstance().getTpcw().writeServer);
+			for (int i = 0; i < ClientEmulator.getInstance().getTpcw().readServer.length; i++) {
+				readQueue.add(new HiveServer(ClientEmulator.getInstance().getTpcw().readServer[i]));
+			}
 		}
-		for (int i = 0; i < ClientEmulator.getInstance().getTpcw().candidateQueue.length; i++) {
-			candidateQueue.add(new Server(ClientEmulator.getInstance().getTpcw().candidateQueue[i]));
+	}
+
+	public void execute(int id, String queryclass, String command) {
+		// we use very simple logic to judge if it is write or read query
+		Connection connection = null;
+		Statement stmt = null;
+		try {
+			if (command.toLowerCase().startsWith("select")) {
+				connection = getNextReadConnection();
+				stmt = connection.createStatement();
+				long start = System.currentTimeMillis();
+				stmt.executeQuery(command);
+				long end = System.currentTimeMillis();
+				ElasticDatabase.getInstance().getMonitor().addQuery(id, queryclass, start, end);
+			} else {
+				connection = getNextReadConnection();
+				stmt = connection.createStatement();
+				long start = System.currentTimeMillis();
+				stmt.executeUpdate(command);
+				long end = System.currentTimeMillis();
+				ElasticDatabase.getInstance().getMonitor().addQuery(id, queryclass, start, end);
+			}
+		} catch (Exception ex) {
+			LOG.error("Error while executing query: " + ex.getMessage());
+		} finally {
+			if (stmt != null)
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			if (connection != null)
+				try {
+					connection.close();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
 		}
 	}
 
@@ -45,8 +91,9 @@ public abstract class LoadBalancer {
 		return server;
 	}
 
-	public synchronized void removeServer(Server server) {
-		readQueue.remove(server);
+	// multiple threads can call this sequentially
+	public synchronized boolean removeServer(Server server) {
+		return readQueue.remove(server);
 	}
 
 	// there is only one server in the writequeue and it will never change.
@@ -64,23 +111,11 @@ public abstract class LoadBalancer {
 		return candidateQueue;
 	}
 
-	public Connection getNextConnection(String sql) {
-		// read
-		if (sql.contains("b")) {
-			return getNextReadConnection();
-		} else {
-			return getNextWriteConnection();
-		}
-	}
-
 	public Connection getNextWriteConnection() {
 		Server server = getNextWriteServer();
 		Connection connection = null;
 		try {
-			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			connection = (Connection) DriverManager.getConnection(Utilities.getUrl(server),
-					ClientEmulator.getInstance().getTpcw().username, ClientEmulator.getInstance().getTpcw().password);
-			connection.setAutoCommit(true);
+			connection = server.getConnection();
 		} catch (Exception e) {
 			LOG.error(e.toString());
 		}
@@ -96,19 +131,19 @@ public abstract class LoadBalancer {
 			server = getNextReadServer();
 			while (connection == null && tryTime++ < Utilities.retryTimes) {
 				try {
-					Class.forName("com.mysql.jdbc.Driver").newInstance();
-					connection = (Connection) DriverManager.getConnection(Utilities.getUrl(server),
-							ClientEmulator.getInstance().getTpcw().username,
-							ClientEmulator.getInstance().getTpcw().password);
-					connection.setAutoCommit(true);
+					connection = server.getConnection();
 				} catch (Exception e) {
 					LOG.error(e.toString());
 				}
 			}
 			if (connection == null) {
-				LOG.error("After trying 3 times, we detected that" + server.getIp() + " is down. ");
-				removeServer(server);
-				detectFailure();
+				LOG.error("After trying 3 times, we detected that " + server.getIp() + " was down. ");
+				if (removeServer(server)) {
+					LOG.info("Find " + server.getIp() + " in the list and we call detectFailure.");
+					detectFailure();
+				} else {
+					LOG.info("Can not find " + server.getIp() + " in the list and we skip detectFailure.");
+				}
 			} else {
 				return connection;
 			}
