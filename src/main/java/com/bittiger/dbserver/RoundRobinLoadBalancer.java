@@ -1,7 +1,5 @@
 package com.bittiger.dbserver;
 
-import java.util.Random;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,11 +7,12 @@ public final class RoundRobinLoadBalancer extends LoadBalancer {
 
 	private static transient final Logger LOG = LoggerFactory.getLogger(RoundRobinLoadBalancer.class);
 
-	private Random random = new Random();
-
+	private int nextReadServer = 0;
+	
 	@Override
 	public synchronized Server getNextReadServer() {
-		Server server = readQueue.get(random.nextInt(readQueue.size()));
+		nextReadServer = (nextReadServer + 1) % readQueue.size();
+		Server server = readQueue.get(nextReadServer);
 		LOG.debug("choose read server as " + server.getIp());
 		return server;
 	}

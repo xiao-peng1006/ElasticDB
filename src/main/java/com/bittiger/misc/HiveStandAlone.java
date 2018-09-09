@@ -24,6 +24,7 @@ public class HiveStandAlone {
 
 		Statement stmt = connection.createStatement();
 
+		// we can run 1,3,4,5,8,9,10,12,13
 		for (int index = 1; index <= 13; index++) {
 			String queryclass = "bq" + index;
 			String classname = "com.bittiger.querypool." + queryclass;
