@@ -19,6 +19,7 @@ public final class RoundRobinLoadBalancer extends LoadBalancer {
 
 	@Override
 	public Server getNextWriteServer() {
+		LOG.debug("choose write server as " + writeQueue.getIp());
 		return writeQueue;
 	}
 

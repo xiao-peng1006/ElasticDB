@@ -19,7 +19,7 @@ public class Utilities {
 	public static final int minimumSlave = 3;
 
 	public static String getMySQLUrl(String ip) {
-		return "jdbc:mysql://" + ip + "/tpcw?connect_timeout=10";
+		return "jdbc:mysql://" + ip + "/tpcw?connect_timeout=10&useReadAheadInput=false";
 	}
 
 	public static String getHiveUrl(String ip) {

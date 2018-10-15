@@ -51,7 +51,7 @@ public abstract class LoadBalancer {
 				long end = System.currentTimeMillis();
 				ElasticDatabase.getInstance().getMonitor().addQuery(id, queryclass, start, end);
 			} else {
-				connection = getNextReadConnection();
+				connection = getNextWriteConnection();
 				stmt = connection.createStatement();
 				long start = System.currentTimeMillis();
 				stmt.executeUpdate(command);
@@ -113,14 +113,13 @@ public abstract class LoadBalancer {
 
 	public Connection getNextWriteConnection() {
 		Server server = getNextWriteServer();
-		Connection connection = null;
 		try {
-			connection = server.getConnection();
+			return server.getConnection();
 		} catch (Exception e) {
-			LOG.error(e.toString());
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		LOG.debug("choose write server as " + server.getIp());
-		return connection;
+		return null;
 	}
 
 	public Connection getNextReadConnection() {
